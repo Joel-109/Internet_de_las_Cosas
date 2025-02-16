@@ -1,17 +1,14 @@
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
 
-// Define a maximum number of observers
 constexpr size_t MAX_OBSERVERS = 5;
 
-// --- Observer Interface ---
 class IObserver {
 public:
     virtual void update(float value) = 0;
     virtual ~IObserver() = default;
 };
 
-// --- Sensor Subject Base Class ---
 class SensorSubject {
 protected:
     IObserver* observers[MAX_OBSERVERS];
@@ -29,21 +26,6 @@ public:
         }
     }
 
-    void detach(IObserver* observer) {
-        for (size_t i = 0; i < observerCount; i++) {
-            if (observers[i] == observer) {
-                // Shift the array to fill the gap
-                for (size_t j = i; j < observerCount - 1; j++) {
-                    observers[j] = observers[j + 1];
-                }
-                observerCount--;
-                Serial.print("Observer detached: ");
-                Serial.println((uintptr_t)observer, HEX);
-                return;
-            }
-        }
-    }
-
     void notifyObservers(float value) {
         Serial.print("Notifying observers with value: ");
         Serial.println(value);
@@ -53,14 +35,12 @@ public:
     }
 };
 
-// --- Sensor Interface ---
 class ISensor {
 public:
     virtual float readValue() = 0;
     virtual ~ISensor() = default;
 };
 
-// --- Temperature Sensor ---
 class TemperatureSensor : public SensorSubject, public ISensor {
 private:
     int analogPin;
@@ -84,7 +64,6 @@ public:
     }
 };
 
-// --- Gas Sensor ---
 class GasSensor : public SensorSubject, public ISensor {
 private:
     int analogPin;
@@ -149,7 +128,6 @@ public:
     }
 };
 
-// --- System Controller ---
 class SystemController {
 private:
     TemperatureSensor* tempSensor;
@@ -163,7 +141,6 @@ public:
     
     void begin() {
         Serial.println("Initializing SystemController...");
-        // Serial already initialized in setup
         lcd->init();
         lcd->begin(16, 2);
         lcd->backlight();
@@ -192,21 +169,18 @@ public:
     }
 };
 
-// --- Static Object Creation ---
-// Avoid dynamic allocation to reduce memory overhead.
 TemperatureSensor tempSensor(A1);
 GasSensor gasSensor(A0);
-LEDAlert ledAlert(13, 80);      // LED on if temperature ≥ 80°C
-PiezoAlert piezoAlert(7, 100);   // Piezo on if gas value ≥ 100
-LiquidCrystal_I2C lcd(32, 16, 2);
+LEDAlert ledAlert(13, 80);      
+PiezoAlert piezoAlert(7, 100);  
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 SystemController controller(&tempSensor, &gasSensor, &lcd);
 
 void setup() {
     Serial.begin(9600);
-    while (!Serial) {} // Wait for Serial to be ready (if applicable)
+    while (!Serial) {} 
     Serial.println("System starting...");
 
-    // Attach observers to sensors
     tempSensor.attach(&ledAlert);
     gasSensor.attach(&piezoAlert);
 
