@@ -20,7 +20,22 @@
       "top": 32.75,
       "left": 0,
       "attrs": { "value": "1000" }
-    }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 32.75,
+      "left": 172.8,
+      "attrs": { "value": "1000" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": -13.2,
+      "left": 205.4,
+      "attrs": { "color": "red" }
+    },
+    { "type": "wokwi-buzzer", "id": "bz1", "top": -132, "left": 21, "attrs": { "volume": "0.1" } }
   ],
   "connections": [
     [ "uno:5V", "bb1:bp.1", "red", [ "v28.7", "h-207.4", "v-268.8" ] ],
@@ -30,19 +45,31 @@
     [ "lcd1:VCC", "bb1:bp.24", "red", [ "h0" ] ],
     [ "lcd1:SDA", "uno:A4", "green", [ "h-96", "v259.4", "h-38.4" ] ],
     [ "lcd1:SCL", "uno:A5", "cyan", [ "h-86.4", "v240.3", "h-38.4" ] ],
-    [ "pot1:GND", "bb1:17b.h", "", [ "$bb" ] ],
-    [ "pot1:SIG", "bb1:18b.h", "", [ "$bb" ] ],
-    [ "pot1:VCC", "bb1:19b.h", "", [ "$bb" ] ],
     [ "pot1:GND", "bb1:bn.14", "black", [ "v0" ] ],
     [ "pot1:VCC", "bb1:bp.16", "red", [ "v0" ] ],
     [ "pot1:SIG", "uno:A0", "magenta", [ "v76.8", "h162.8", "v249.6", "h-109.4" ] ],
     [ "temp1:DQ", "uno:2", "orange", [ "v76.8", "h216.7" ] ],
+    [ "bb1:bp.8", "r1:2", "red", [ "v0" ] ],
+    [ "bb1:22b.j", "uno:13", "violet", [ "v67.2", "h-67.2" ] ],
+    [ "bb1:bn.22", "bb1:27b.j", "green", [ "v0" ] ],
     [ "temp1:GND", "bb1:3b.g", "", [ "$bb" ] ],
     [ "temp1:DQ", "bb1:4b.g", "", [ "$bb" ] ],
     [ "temp1:VCC", "bb1:5b.g", "", [ "$bb" ] ],
+    [ "pot1:GND", "bb1:17b.h", "", [ "$bb" ] ],
+    [ "pot1:SIG", "bb1:18b.h", "", [ "$bb" ] ],
+    [ "pot1:VCC", "bb1:19b.h", "", [ "$bb" ] ],
     [ "r1:1", "bb1:4b.i", "", [ "$bb" ] ],
     [ "r1:2", "bb1:10b.i", "", [ "$bb" ] ],
-    [ "bb1:bp.8", "r1:2", "red", [ "v0" ] ]
+    [ "r2:1", "bb1:22b.i", "", [ "$bb" ] ],
+    [ "r2:2", "bb1:28b.i", "", [ "$bb" ] ],
+    [ "led1:A", "bb1:28b.h", "", [ "$bb" ] ],
+    [ "led1:C", "bb1:27b.h", "", [ "$bb" ] ],
+    [ "bb1:bp.1", "bb1:tp.1", "red", [ "v0" ] ],
+    [ "bb1:bn.1", "bb1:tn.1", "black", [ "v-10.9", "h-8", "v-163.2" ] ],
+    [ "bz1:1", "bb1:9t.b", "", [ "$bb" ] ],
+    [ "bz1:2", "bb1:10t.b", "", [ "$bb" ] ],
+    [ "bb1:tn.2", "bz1:1", "black", [ "v0" ] ],
+    [ "bb1:10t.c", "uno:7", "purple", [ "v38.4", "h19.2", "v124.8", "h96" ] ]
   ],
   "dependencies": {}
 }

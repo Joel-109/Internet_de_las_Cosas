@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 constexpr size_t MAX_OBSERVERS = 5;
 
@@ -20,7 +22,7 @@ public:
         if (observerCount < MAX_OBSERVERS) {
             observers[observerCount++] = observer;
             Serial.print("Observer attached: ");
-            Serial.println((uintptr_t)observer, HEX);
+            Serial.println((unsigned long)observer, HEX);
         } else {
             Serial.println("Observer attach failed: max observers reached");
         }
@@ -43,21 +45,22 @@ public:
 
 class TemperatureSensor : public SensorSubject, public ISensor {
 private:
-    int analogPin;
+    OneWire oneWire;
+    DallasTemperature sensors;
 public:
-    TemperatureSensor(int pin) : analogPin(pin) {}
-
+    TemperatureSensor(uint8_t pin)
+      : oneWire(pin), sensors(&oneWire)
+    {
+    }
+    
+    void begin() {
+        sensors.begin();
+    }
+    
     float readValue() override {
-        int rawValue = analogRead(analogPin);
-        float voltage = (rawValue / 1023.0f) * 5000.0f;
-        float temperature = (voltage - 500.0f) / 10.0f;
-        Serial.print("TemperatureSensor (pin ");
-        Serial.print(analogPin);
-        Serial.print(") raw reading: ");
-        Serial.print(rawValue);
-        Serial.print(", voltage: ");
-        Serial.print(voltage);
-        Serial.print(" mV, temperature: ");
+        sensors.requestTemperatures(); 
+        float temperature = sensors.getTempCByIndex(0);
+        Serial.print("TemperatureSensor DS18B20 reading: ");
         Serial.println(temperature);
         notifyObservers(temperature);
         return temperature;
@@ -82,7 +85,6 @@ public:
     }
 };
 
-// --- LED Alert Observer ---
 class LEDAlert : public IObserver {
 private:
     int ledPin;
@@ -105,7 +107,6 @@ public:
     }
 };
 
-// --- Piezo Alert Observer ---
 class PiezoAlert : public IObserver {
 private:
     int piezoPin;
@@ -124,6 +125,11 @@ public:
         Serial.print("PiezoAlert: value ");
         Serial.print(value);
         Serial.print(" -> ");
+        if (value >= threshold) {
+            tone(piezoPin, 1000, 1000);
+        } else {
+            noTone(piezoPin);
+        }
         Serial.println((value >= threshold) ? "Piezo ON" : "Piezo OFF");
     }
 };
@@ -169,25 +175,36 @@ public:
     }
 };
 
-TemperatureSensor tempSensor(A1);
-GasSensor gasSensor(A0);
-LEDAlert ledAlert(13, 80);      
-PiezoAlert piezoAlert(7, 100);  
-LiquidCrystal_I2C lcd(0x27, 16, 2);
-SystemController controller(&tempSensor, &gasSensor, &lcd);
+TemperatureSensor* tempSensor;
+GasSensor* gasSensor;
+LEDAlert* ledAlert;
+PiezoAlert* piezoAlert;
+LiquidCrystal_I2C* lcd;
+SystemController* controller;
 
 void setup() {
     Serial.begin(9600);
     while (!Serial) {} 
     Serial.println("System starting...");
-
-    tempSensor.attach(&ledAlert);
-    gasSensor.attach(&piezoAlert);
-
-    controller.begin();
+    
+    tempSensor = new TemperatureSensor(2);  
+    tempSensor->begin();                     
+    gasSensor = new GasSensor(A0);
+    
+    ledAlert = new LEDAlert(13, 80);
+    piezoAlert = new PiezoAlert(7, 100);
+    
+    lcd = new LiquidCrystal_I2C(0x27, 16, 2);
+    
+    controller = new SystemController(tempSensor, gasSensor, lcd);
+    
+    tempSensor->attach(ledAlert);
+    gasSensor->attach(piezoAlert);
+    
+    controller->begin();
     Serial.println("SystemController started.");
 }
 
 void loop() {
-    controller.update();
+    controller->update();
 }
