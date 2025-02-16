@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "author": "Esteban Fernando Forero Montejo",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-breadboard-half", "id": "bb1", "top": -108.6, "left": -54.8, "attrs": {} },
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 125.4, "left": -19.8, "attrs": {} },
+    { "type": "board-ds18b20", "id": "temp1", "top": -10.73, "left": -15.12, "attrs": {} },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd1",
+      "top": 35.2,
+      "left": 360.8,
+      "attrs": { "pins": "i2c" }
+    },
+    { "type": "wokwi-potentiometer", "id": "pot1", "top": -39.7, "left": 95.8, "attrs": {} }
+  ],
+  "connections": [
+    [ "uno:5V", "bb1:bp.1", "red", [ "v28.7", "h-207.4", "v-268.8" ] ],
+    [ "uno:GND.2", "bb1:bn.1", "black", [ "v19.1", "h-207.3", "v-249.6" ] ],
+    [ "temp1:GND", "bb1:3b.i", "", [ "$bb" ] ],
+    [ "temp1:DQ", "bb1:4b.i", "", [ "$bb" ] ],
+    [ "temp1:VCC", "bb1:5b.i", "", [ "$bb" ] ],
+    [ "temp1:VCC", "bb1:bp.4", "red", [ "v0" ] ],
+    [ "temp1:GND", "bb1:bn.2", "black", [ "v0" ] ],
+    [ "lcd1:GND", "bb1:bn.25", "black", [ "h0" ] ],
+    [ "lcd1:VCC", "bb1:bp.24", "red", [ "h0" ] ],
+    [ "lcd1:SDA", "uno:A4", "green", [ "h-96", "v259.4", "h-38.4" ] ],
+    [ "lcd1:SCL", "uno:A5", "cyan", [ "h-86.4", "v240.3", "h-38.4" ] ],
+    [ "pot1:GND", "bb1:17b.h", "", [ "$bb" ] ],
+    [ "pot1:SIG", "bb1:18b.h", "", [ "$bb" ] ],
+    [ "pot1:VCC", "bb1:19b.h", "", [ "$bb" ] ],
+    [ "pot1:GND", "bb1:bn.14", "black", [ "v0" ] ],
+    [ "pot1:VCC", "bb1:bp.16", "red", [ "v0" ] ],
+    [ "pot1:SIG", "uno:A0", "magenta", [ "v86.4", "h162.8", "v240", "h-105.6" ] ]
+  ],
+  "dependencies": {}
+}
