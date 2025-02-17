@@ -31,6 +31,24 @@ public:
     }
 };
 
+class FlameSensor : public ISensor {
+private:
+    int digitalPin;
+public:
+    FlameSensor(int pin) : digitalPin(pin) {
+        pinMode(digitalPin, INPUT);
+    }
+
+    float readValue() override {
+        int raw = digitalRead(digitalPin);
+        Serial.print("FlameSensor (pin ");
+        Serial.print(digitalPin);
+        Serial.print(") raw reading: ");
+        Serial.println(raw);
+        return static_cast<float>(raw);
+    }
+};
+
 class GasSensor : public ISensor {
 private:
     int analogPin;
@@ -115,6 +133,7 @@ class Controller {
 private:
     ISensor* temperatureSensor;
     ISensor* gasSensor;
+    ISensor* flameSensor;
     IDisplay* display;
     IActuator* led_temp;
     IActuator* led_gas;
@@ -124,13 +143,14 @@ private:
 public:
     Controller(ISensor* temp,
                ISensor* gas,
+               ISensor* flame,
                IDisplay* disp,
                IActuator* ledTempAct,
                IActuator* ledGasAct,
                IActuator* piezoAct,
                float tempThresh,
                float gasThresh)
-      : temperatureSensor(temp), gasSensor(gas), display(disp),
+      : temperatureSensor(temp), gasSensor(gas), flameSensor(flame), display(disp),
         led_temp(ledTempAct), led_gas(ledGasAct), piezo(piezoAct),
         temperatureThreshold(tempThresh), gasThreshold(gasThresh)
     {}
@@ -146,6 +166,10 @@ public:
         Serial.print(temp);
         Serial.print(" °C, GasSensor = ");
         Serial.println(gas);
+
+        float flame = flameSensor->readValue();
+        Serial.print("Flame sensor = ");
+        Serial.println(flame);
 
         display->showTemperature(temp);
         display->showGas(gas);
@@ -165,6 +189,7 @@ LEDActuator* led_temp;
 LEDActuator* led_gas;
 PiezoActuator* piezo;
 Controller* controller;
+FlameSensor* flameSensor;
 
 void setup() {
     Serial.begin(9600);
@@ -175,13 +200,15 @@ void setup() {
     tempSensor->begin();
     gasSensor = new GasSensor(A0);
 
+    flameSensor = new FlameSensor(6);
+
     lcd = new LCDDisplay(0x27, 16, 2);  
     lcd->init();
     led_temp = new LEDActuator(13);
     led_gas = new LEDActuator(12);
     piezo = new PiezoActuator(7);
 
-    controller = new Controller(tempSensor, gasSensor, lcd, led_temp, led_gas, piezo, 80.0, 100.0);
+    controller = new Controller(tempSensor, gasSensor, flameSensor, lcd, led_temp, led_gas, piezo, 80.0, 100.0);
 
     Serial.println("Controller initialized.");
 }
