@@ -3,206 +3,182 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
-constexpr size_t MAX_OBSERVERS = 5;
-
-class IObserver {
-public:
-    virtual void update(float value) = 0;
-    virtual ~IObserver() = default;
-};
-
-class SensorSubject {
-protected:
-    IObserver* observers[MAX_OBSERVERS];
-    size_t observerCount;
-public:
-    SensorSubject() : observerCount(0) {}
-
-    void attach(IObserver* observer) {
-        if (observerCount < MAX_OBSERVERS) {
-            observers[observerCount++] = observer;
-            Serial.print("Observer attached: ");
-            Serial.println((unsigned long)observer, HEX);
-        } else {
-            Serial.println("Observer attach failed: max observers reached");
-        }
-    }
-
-    void notifyObservers(float value) {
-        Serial.print("Notifying observers with value: ");
-        Serial.println(value);
-        for (size_t i = 0; i < observerCount; i++) {
-            observers[i]->update(value);
-        }
-    }
-};
-
 class ISensor {
 public:
     virtual float readValue() = 0;
     virtual ~ISensor() = default;
 };
 
-class TemperatureSensor : public SensorSubject, public ISensor {
+class TemperatureSensor : public ISensor {
 private:
     OneWire oneWire;
     DallasTemperature sensors;
 public:
     TemperatureSensor(uint8_t pin)
       : oneWire(pin), sensors(&oneWire)
-    {
-    }
-    
+    {}
+
     void begin() {
         sensors.begin();
     }
-    
+
     float readValue() override {
-        sensors.requestTemperatures(); 
-        float temperature = sensors.getTempCByIndex(0);
+        sensors.requestTemperatures();
+        float temp = sensors.getTempCByIndex(0);
         Serial.print("TemperatureSensor DS18B20 reading: ");
-        Serial.println(temperature);
-        notifyObservers(temperature);
-        return temperature;
+        Serial.println(temp);
+        return temp;
     }
 };
 
-class GasSensor : public SensorSubject, public ISensor {
+class GasSensor : public ISensor {
 private:
     int analogPin;
 public:
     GasSensor(int pin) : analogPin(pin) {}
 
     float readValue() override {
-        int rawValue = analogRead(analogPin);
-        float gasValue = static_cast<float>(rawValue);
+        int raw = analogRead(analogPin);
         Serial.print("GasSensor (pin ");
         Serial.print(analogPin);
         Serial.print(") raw reading: ");
-        Serial.println(rawValue);
-        notifyObservers(gasValue);
-        return gasValue;
+        Serial.println(raw);
+        return static_cast<float>(raw);
     }
 };
 
-class LEDAlert : public IObserver {
+class IActuator {
+public:
+    virtual void setState(bool active) = 0;
+    virtual ~IActuator() = default;
+};
+
+class LEDActuator : public IActuator {
 private:
     int ledPin;
-    float threshold;
 public:
-    LEDAlert(int pin, float thresh) : ledPin(pin), threshold(thresh) {
+    LEDActuator(int pin) : ledPin(pin) {
         pinMode(ledPin, OUTPUT);
-        Serial.print("LEDAlert initialized on pin ");
-        Serial.print(ledPin);
-        Serial.print(" with threshold ");
-        Serial.println(threshold);
     }
-    
-    void update(float value) override {
-        digitalWrite(ledPin, (value >= threshold) ? HIGH : LOW);
-        Serial.print("LEDAlert: value ");
-        Serial.print(value);
-        Serial.print(" -> ");
-        Serial.println((value >= threshold) ? "LED ON" : "LED OFF");
+    void setState(bool active) override {
+        digitalWrite(ledPin, active ? HIGH : LOW);
     }
 };
 
-class PiezoAlert : public IObserver {
+class PiezoActuator : public IActuator {
 private:
     int piezoPin;
-    float threshold;
 public:
-    PiezoAlert(int pin, float thresh) : piezoPin(pin), threshold(thresh) {
+    PiezoActuator(int pin) : piezoPin(pin) {
         pinMode(piezoPin, OUTPUT);
-        Serial.print("PiezoAlert initialized on pin ");
-        Serial.print(piezoPin);
-        Serial.print(" with threshold ");
-        Serial.println(threshold);
     }
-    
-    void update(float value) override {
-        digitalWrite(piezoPin, (value >= threshold) ? HIGH : LOW);
-        Serial.print("PiezoAlert: value ");
-        Serial.print(value);
-        Serial.print(" -> ");
-        if (value >= threshold) {
+    void setState(bool active) override {
+        if (active)
             tone(piezoPin, 1000, 1000);
-        } else {
+        else
             noTone(piezoPin);
-        }
-        Serial.println((value >= threshold) ? "Piezo ON" : "Piezo OFF");
     }
 };
 
-class SystemController {
-private:
-    TemperatureSensor* tempSensor;
-    GasSensor* gasSensor;
-    LiquidCrystal_I2C* lcd;
-    
+class IDisplay {
 public:
-    SystemController(TemperatureSensor* temp, GasSensor* gas, LiquidCrystal_I2C* display)
-      : tempSensor(temp), gasSensor(gas), lcd(display)
+    virtual void showTemperature(float temperature) = 0;
+    virtual void showGas(float gasValue) = 0;
+    virtual ~IDisplay() = default;
+};
+
+class LCDDisplay : public IDisplay {
+private:
+    LiquidCrystal_I2C lcd;
+public:
+    LCDDisplay(uint8_t addr, uint8_t cols, uint8_t rows)
+      : lcd(addr, cols, rows)
     {}
-    
-    void begin() {
-        Serial.println("Initializing SystemController...");
-        lcd->init();
-        lcd->begin(16, 2);
-        lcd->backlight();
-        Serial.println("LCD initialized.");
+
+    void init() {
+        lcd.init();
+        lcd.begin(16, 2);
+        lcd.backlight();
     }
-    
+
+    void showTemperature(float temperature) override {
+        lcd.setCursor(0, 0);
+        lcd.print("Temp: " + String(temperature) + " C   ");
+    }
+    void showGas(float gasValue) override {
+        lcd.setCursor(0, 1);
+        lcd.print("Gas: " + String(gasValue) + "     ");
+    }
+};
+
+class Controller {
+private:
+    ISensor* temperatureSensor;
+    ISensor* gasSensor;
+    IDisplay* display;
+    IActuator* led;
+    IActuator* piezo;
+    float temperatureThreshold;
+    float gasThreshold;
+public:
+    Controller(ISensor* temp,
+               ISensor* gas,
+               IDisplay* disp,
+               IActuator* ledAct,
+               IActuator* piezoAct,
+               float tempThresh,
+               float gasThresh)
+      : temperatureSensor(temp), gasSensor(gas), display(disp),
+        led(ledAct), piezo(piezoAct),
+        temperatureThreshold(tempThresh), gasThreshold(gasThresh)
+    {}
+
+    void init() {
+        // Initialization is handled by each component.
+    }
+
     void update() {
-        Serial.println("----- Update Cycle Start -----");
-        float temperature = tempSensor->readValue();
-        float gasValue    = gasSensor->readValue();
-        
+        float temp = temperatureSensor->readValue();
+        float gas = gasSensor->readValue();
         Serial.print("Controller: Temperature = ");
-        Serial.print(temperature);
+        Serial.print(temp);
         Serial.print(" °C, GasSensor = ");
-        Serial.println(gasValue);
-        
-        lcd->clear();
-        lcd->setCursor(0, 0);
-        lcd->print("Temp: " + String(temperature) + " C");
-        lcd->setCursor(0, 1);
-        lcd->print("Gas: " + String(gasValue));
-        Serial.println("Display updated.");
-        Serial.println("----- Update Cycle End -----\n");
-        
+        Serial.println(gas);
+
+        display->showTemperature(temp);
+        display->showGas(gas);
+
+        led->setState(temp >= temperatureThreshold);
+        piezo->setState(gas >= gasThreshold);
+
         delay(1000);
     }
 };
 
 TemperatureSensor* tempSensor;
 GasSensor* gasSensor;
-LEDAlert* ledAlert;
-PiezoAlert* piezoAlert;
-LiquidCrystal_I2C* lcd;
-SystemController* controller;
+LCDDisplay* lcd;
+LEDActuator* led;
+PiezoActuator* piezo;
+Controller* controller;
 
 void setup() {
     Serial.begin(9600);
-    while (!Serial) {} 
+    while (!Serial) {}
     Serial.println("System starting...");
-    
+
     tempSensor = new TemperatureSensor(2);  
-    tempSensor->begin();                     
+    tempSensor->begin();
     gasSensor = new GasSensor(A0);
-    
-    ledAlert = new LEDAlert(13, 80);
-    piezoAlert = new PiezoAlert(7, 100);
-    
-    lcd = new LiquidCrystal_I2C(0x27, 16, 2);
-    
-    controller = new SystemController(tempSensor, gasSensor, lcd);
-    
-    tempSensor->attach(ledAlert);
-    gasSensor->attach(piezoAlert);
-    
-    controller->begin();
-    Serial.println("SystemController started.");
+
+    lcd = new LCDDisplay(0x27, 16, 2);  
+    lcd->init();
+    led = new LEDActuator(13);
+    piezo = new PiezoActuator(7);
+
+    controller = new Controller(tempSensor, gasSensor, lcd, led, piezo, 80.0, 100.0);
+
+    Serial.println("Controller initialized.");
 }
 
 void loop() {
