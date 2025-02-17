@@ -25,8 +25,8 @@ public:
     float readValue() override {
         sensors.requestTemperatures();
         float temp = sensors.getTempCByIndex(0);
-        Serial.print("TemperatureSensor DS18B20 reading: ");
-        Serial.println(temp);
+        // Serial.print("TemperatureSensor DS18B20 reading: ");
+        // Serial.println(temp);
         return temp;
     }
 };
@@ -41,10 +41,10 @@ public:
 
     float readValue() override {
         int raw = digitalRead(digitalPin);
-        Serial.print("FlameSensor (pin ");
-        Serial.print(digitalPin);
-        Serial.print(") raw reading: ");
-        Serial.println(raw);
+        // Serial.print("FlameSensor (pin ");
+        // Serial.print(digitalPin);
+        // Serial.print(") raw reading: ");
+        // Serial.println(raw);
         return static_cast<float>(raw);
     }
 };
@@ -57,10 +57,6 @@ public:
 
     float readValue() override {
         int raw = analogRead(analogPin);
-        Serial.print("GasSensor (pin ");
-        Serial.print(analogPin);
-        Serial.print(") raw reading: ");
-        Serial.println(raw);
         return static_cast<float>(raw);
     }
 };
@@ -70,6 +66,29 @@ public:
     virtual void setState(bool active) = 0;
     virtual ~IActuator() = default;
 };
+
+class RelayActuator {
+private:
+    int redPin;
+    int greenPin;
+    int bluePin;
+
+public:
+    RelayActuator(int red, int green, int blue)
+      : redPin(red), greenPin(green), bluePin(blue)
+    {
+        pinMode(redPin, OUTPUT);
+        pinMode(greenPin, OUTPUT);
+        pinMode(bluePin, OUTPUT);
+    }
+
+    void setColor(int red, int green, int blue) {
+        analogWrite(redPin, red);
+        analogWrite(greenPin, green);
+        analogWrite(bluePin, blue);
+    }
+};
+
 
 class LEDActuator : public IActuator {
 private:
@@ -92,9 +111,14 @@ public:
     }
     void setState(bool active) override {
         if (active)
+        {
+            Serial.println("Gas detected! Beep!");
             tone(piezoPin, 1000, 1000);
-        else
+        }
+        else {
+            Serial.println("Gas level normal.");
             noTone(piezoPin);
+        }
     }
 };
 
@@ -200,15 +224,16 @@ void setup() {
     tempSensor->begin();
     gasSensor = new GasSensor(A0);
 
-    flameSensor = new FlameSensor(6);
+    flameSensor = new FlameSensor(4);
 
     lcd = new LCDDisplay(0x27, 16, 2);  
     lcd->init();
     led_temp = new LEDActuator(13);
     led_gas = new LEDActuator(12);
     piezo = new PiezoActuator(7);
+    piezo->setState(false);
 
-    controller = new Controller(tempSensor, gasSensor, flameSensor, lcd, led_temp, led_gas, piezo, 80.0, 100.0);
+    controller = new Controller(tempSensor, gasSensor, flameSensor, lcd, led_temp, led_gas, piezo, 30.0, 500.0);
 
     Serial.println("Controller initialized.");
 }
