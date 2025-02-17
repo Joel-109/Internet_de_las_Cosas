@@ -116,7 +116,8 @@ private:
     ISensor* temperatureSensor;
     ISensor* gasSensor;
     IDisplay* display;
-    IActuator* led;
+    IActuator* led_temp;
+    IActuator* led_gas;
     IActuator* piezo;
     float temperatureThreshold;
     float gasThreshold;
@@ -124,12 +125,13 @@ public:
     Controller(ISensor* temp,
                ISensor* gas,
                IDisplay* disp,
-               IActuator* ledAct,
+               IActuator* ledTempAct,
+               IActuator* ledGasAct,
                IActuator* piezoAct,
                float tempThresh,
                float gasThresh)
       : temperatureSensor(temp), gasSensor(gas), display(disp),
-        led(ledAct), piezo(piezoAct),
+        led_temp(ledTempAct), led_gas(ledGasAct), piezo(piezoAct),
         temperatureThreshold(tempThresh), gasThreshold(gasThresh)
     {}
 
@@ -148,8 +150,9 @@ public:
         display->showTemperature(temp);
         display->showGas(gas);
 
-        led->setState(temp >= temperatureThreshold);
-        piezo->setState(gas >= gasThreshold);
+        led_temp->setState(temp >= temperatureThreshold);
+        led_gas->setState(gas >= gasThreshold);
+        piezo->setState(gas >= gasThreshold && temp >= temperatureThreshold);
 
         delay(1000);
     }
@@ -158,7 +161,8 @@ public:
 TemperatureSensor* tempSensor;
 GasSensor* gasSensor;
 LCDDisplay* lcd;
-LEDActuator* led;
+LEDActuator* led_temp;
+LEDActuator* led_gas;
 PiezoActuator* piezo;
 Controller* controller;
 
@@ -173,10 +177,11 @@ void setup() {
 
     lcd = new LCDDisplay(0x27, 16, 2);  
     lcd->init();
-    led = new LEDActuator(13);
+    led_temp = new LEDActuator(13);
+    led_gas = new LEDActuator(12);
     piezo = new PiezoActuator(7);
 
-    controller = new Controller(tempSensor, gasSensor, lcd, led, piezo, 80.0, 100.0);
+    controller = new Controller(tempSensor, gasSensor, lcd, led_temp, led_gas, piezo, 80.0, 100.0);
 
     Serial.println("Controller initialized.");
 }
