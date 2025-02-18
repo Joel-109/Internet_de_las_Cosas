@@ -41,11 +41,7 @@ public:
 
     float readValue() override {
         int raw = digitalRead(digitalPin);
-        // Serial.print("FlameSensor (pin ");
-        // Serial.print(digitalPin);
-        // Serial.print(") raw reading: ");
-        // Serial.println(raw);
-        return static_cast<float>(raw);
+        return raw;
     }
 };
 
@@ -67,14 +63,14 @@ public:
     virtual ~IActuator() = default;
 };
 
-class RelayActuator {
+class RgbLed {
 private:
     int redPin;
     int greenPin;
     int bluePin;
 
 public:
-    RelayActuator(int red, int green, int blue)
+    RgbLed(int red, int green, int blue)
       : redPin(red), greenPin(green), bluePin(blue)
     {
         pinMode(redPin, OUTPUT);
@@ -83,9 +79,9 @@ public:
     }
 
     void setColor(int red, int green, int blue) {
-        analogWrite(redPin, red);
-        analogWrite(greenPin, green);
-        analogWrite(bluePin, blue);
+        analogWrite(redPin, 255 - red);
+        analogWrite(greenPin, 255 - green);
+        analogWrite(bluePin, 255 - blue);
     }
 };
 
@@ -162,6 +158,8 @@ private:
     IActuator* led_temp;
     IActuator* led_gas;
     IActuator* piezo;
+    RgbLed* rgbLed;
+    
     float temperatureThreshold;
     float gasThreshold;
 public:
@@ -172,10 +170,12 @@ public:
                IActuator* ledTempAct,
                IActuator* ledGasAct,
                IActuator* piezoAct,
+               RgbLed* rgbLedAct,
                float tempThresh,
                float gasThresh)
       : temperatureSensor(temp), gasSensor(gas), flameSensor(flame), display(disp),
         led_temp(ledTempAct), led_gas(ledGasAct), piezo(piezoAct),
+        rgbLed(rgbLedAct),
         temperatureThreshold(tempThresh), gasThreshold(gasThresh)
     {}
 
@@ -200,7 +200,20 @@ public:
 
         led_temp->setState(temp >= temperatureThreshold);
         led_gas->setState(gas >= gasThreshold);
-        piezo->setState(gas >= gasThreshold && temp >= temperatureThreshold);
+        piezo->setState((gas >= gasThreshold && temp >= temperatureThreshold) || flame == 0);
+
+        if ((temp >= temperatureThreshold && gas >= gasThreshold) || flame == 0) {
+            Serial.println("Danger! Temperature and gas level above threshold!");
+            rgbLed->setColor(255, 0, 0);
+        }
+        else if (temp >= temperatureThreshold || gas >= gasThreshold || flame == 0) {
+            Serial.println("Warning! Temperature or gas level above threshold!");
+            rgbLed->setColor(255, 165, 0);
+        }
+        else {
+            Serial.println("Normal conditions.");
+            rgbLed->setColor(0, 255, 0);
+        }
 
         delay(1000);
     }
@@ -214,6 +227,7 @@ LEDActuator* led_gas;
 PiezoActuator* piezo;
 Controller* controller;
 FlameSensor* flameSensor;
+RgbLed* rgbLed;
 
 void setup() {
     Serial.begin(9600);
@@ -224,7 +238,7 @@ void setup() {
     tempSensor->begin();
     gasSensor = new GasSensor(A0);
 
-    flameSensor = new FlameSensor(4);
+    flameSensor = new FlameSensor(6);
 
     lcd = new LCDDisplay(0x27, 16, 2);  
     lcd->init();
@@ -233,7 +247,9 @@ void setup() {
     piezo = new PiezoActuator(7);
     piezo->setState(false);
 
-    controller = new Controller(tempSensor, gasSensor, flameSensor, lcd, led_temp, led_gas, piezo, 30.0, 500.0);
+    rgbLed = new RgbLed(11, 10, 9);
+
+    controller = new Controller(tempSensor, gasSensor, flameSensor, lcd, led_temp, led_gas, piezo, rgbLed, 30.0, 500.0);
 
     Serial.println("Controller initialized.");
 }
